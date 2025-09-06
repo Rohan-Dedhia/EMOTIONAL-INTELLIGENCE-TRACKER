@@ -6,6 +6,8 @@ from flask_cors import CORS
 import io
 from PIL import Image
 import cv2
+from deepface import DeepFace
+import os
 
 app = Flask(__name__)
 CORS(app)
@@ -16,17 +18,18 @@ CORS(app)
 def handle_chat_response(emotion, page="chat"):
     """Generate appropriate chatbot response based on detected emotion and current page"""
     
-    # Map NRClex emotions to our system
+    # Map DeepFace emotions to our system
     emotion_mapping = {
-        'joy': 'happy',
-        'sadness': 'sad', 
-        'anger': 'angry',
+        'happy': 'happy',
+        'sad': 'sad', 
+        'angry': 'angry',
         'fear': 'fear',
         'disgust': 'disgust',
-        'surprise': 'surprise'
+        'surprise': 'surprise',
+        'neutral': 'neutral'
     }
     
-    # Convert NRClex emotion to our system
+    # Convert DeepFace emotion to our system
     mapped_emotion = emotion_mapping.get(emotion, emotion)
     
     if mapped_emotion == "happy":
@@ -87,7 +90,7 @@ def handle_chat_response(emotion, page="chat"):
 
 
 def detect_emotion_from_image(image_data):
-    """Enhanced emotion detection from image using facial analysis"""
+    """Enhanced emotion detection from image using DeepFace"""
     try:
         # Decode base64 image
         image_bytes = base64.b64decode(image_data.split(',')[1])
@@ -96,44 +99,73 @@ def detect_emotion_from_image(image_data):
         # Convert PIL image to OpenCV format
         frame = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
         
-        # Face detection using Haar Cascade
-        face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        faces = face_cascade.detectMultiScale(gray, 1.1, 4)
+        # Save temporary image for DeepFace processing
+        temp_path = 'temp_emotion_image.jpg'
+        cv2.imwrite(temp_path, frame)
         
-        if len(faces) > 0:
-            # Get the largest face
-            largest_face = max(faces, key=lambda x: x[2] * x[3])
-            x, y, w, h = largest_face
+        try:
+            # Use DeepFace for emotion analysis
+            result = DeepFace.analyze(
+                img_path=temp_path,
+                actions=['emotion'],
+                enforce_detection=True,
+                detector_backend='opencv'
+            )
             
-            # Extract face region
-            face_roi = gray[y:y+h, x:x+w]
+            # Clean up temporary file
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
             
-            # Simple emotion detection based on facial features
-            emotion_scores = analyze_facial_features(face_roi)
+            # Extract emotion data
+            if isinstance(result, list):
+                result = result[0]  # Take first face if multiple detected
             
-            # Get dominant emotion
-            if emotion_scores and any(emotion_scores.values()):
-                dominant_emotion = max(emotion_scores, key=emotion_scores.get)
-                confidence = emotion_scores[dominant_emotion] / sum(emotion_scores.values())
+            emotions = result.get('emotion', {})
+            
+            if emotions:
+                # Get dominant emotion
+                dominant_emotion = max(emotions, key=emotions.get)
+                confidence = emotions[dominant_emotion] / 100.0  # Convert percentage to decimal
+                
+                # Normalize all emotions to 0-1 range
+                normalized_emotions = {k: v/100.0 for k, v in emotions.items()}
+                
+                return {
+                    'emotion': dominant_emotion,
+                    'confidence': confidence,
+                    'all_emotions': normalized_emotions,
+                    'face_detected': True
+                }
             else:
-                dominant_emotion = 'neutral'
-                confidence = 0.5
-                emotion_scores = {'neutral': 1.0}
+                return {
+                    'emotion': 'neutral',
+                    'confidence': 0.5,
+                    'all_emotions': {'neutral': 1.0},
+                    'face_detected': False
+                }
+                
+        except Exception as deepface_error:
+            print(f"DeepFace error: {deepface_error}")
+            # Fallback to basic face detection
+            face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            faces = face_cascade.detectMultiScale(gray, 1.1, 4)
             
-            return {
-                'emotion': dominant_emotion,
-                'confidence': confidence,
-                'all_emotions': emotion_scores,
-                'face_detected': True
-            }
-        else:
-            return {
-                'emotion': 'neutral',
-                'confidence': 0.2,
-                'all_emotions': {'neutral': 1.0},
-                'face_detected': False
-            }
+            if len(faces) > 0:
+                return {
+                    'emotion': 'neutral',
+                    'confidence': 0.3,
+                    'all_emotions': {'neutral': 1.0},
+                    'face_detected': True
+                }
+            else:
+                return {
+                    'emotion': 'neutral',
+                    'confidence': 0.2,
+                    'all_emotions': {'neutral': 1.0},
+                    'face_detected': False
+                }
+        
     except Exception as e:
         print(f"Error in image emotion detection: {e}")
         return {
@@ -143,79 +175,6 @@ def detect_emotion_from_image(image_data):
             'face_detected': False
         }
 
-def analyze_facial_features(face_roi):
-    """Analyze facial features to detect emotions"""
-    try:
-        # Resize face to standard size
-        face_resized = cv2.resize(face_roi, (48, 48))
-        
-        # Calculate basic facial feature metrics
-        height, width = face_resized.shape
-        
-        # Analyze different regions of the face
-        # Upper region (eyes)
-        upper_region = face_resized[0:height//3, :]
-        # Middle region (nose)
-        middle_region = face_resized[height//3:2*height//3, :]
-        # Lower region (mouth)
-        lower_region = face_resized[2*height//3:, :]
-        
-        # Calculate brightness and contrast for each region
-        upper_brightness = np.mean(upper_region)
-        middle_brightness = np.mean(middle_region)
-        lower_brightness = np.mean(lower_region)
-        
-        # Calculate gradients (edge detection) for mouth region
-        sobelx = cv2.Sobel(lower_region, cv2.CV_64F, 1, 0, ksize=3)
-        sobely = cv2.Sobel(lower_region, cv2.CV_64F, 0, 1, ksize=3)
-        gradient_magnitude = np.sqrt(sobelx**2 + sobely**2)
-        mouth_activity = np.mean(gradient_magnitude)
-        
-        # Simple emotion scoring based on facial features
-        emotion_scores = {
-            'happy': 0.0,
-            'sad': 0.0,
-            'angry': 0.0,
-            'fear': 0.0,
-            'surprise': 0.0,
-            'neutral': 0.5  # Default neutral score
-        }
-        
-        # Happy: brighter eyes, upward mouth curve, more mouth activity
-        if upper_brightness > 110 and mouth_activity > 12:
-            emotion_scores['happy'] += 0.9
-        
-        # Sad: darker eyes, less mouth activity
-        if upper_brightness < 105 and mouth_activity < 8:
-            emotion_scores['sad'] += 0.8
-        
-        # Angry: tense features, high contrast, medium mouth activity
-        if np.std(face_resized) > 20 and 8 < mouth_activity < 15:
-            emotion_scores['angry'] += 0.7
-        
-        # Surprise: bright eyes, very high mouth activity
-        if upper_brightness > 125 and mouth_activity > 18:
-            emotion_scores['surprise'] += 0.8
-        
-        # Fear: bright eyes, medium mouth activity
-        if upper_brightness > 120 and 10 < mouth_activity < 16:
-            emotion_scores['fear'] += 0.6
-        
-        # Adjust neutral score based on overall face characteristics
-        if 100 < upper_brightness < 120 and 8 < mouth_activity < 12:
-            emotion_scores['neutral'] += 0.3
-        
-        # Normalize scores
-        total_score = sum(emotion_scores.values())
-        if total_score > 0:
-            for emotion in emotion_scores:
-                emotion_scores[emotion] = emotion_scores[emotion] / total_score
-        
-        return emotion_scores
-        
-    except Exception as e:
-        print(f"Error analyzing facial features: {e}")
-        return {'neutral': 1.0}
 
 @app.route('/detect_emotion', methods=['POST'])
 def detect_emotion():
@@ -262,14 +221,15 @@ def get_emotion_recommendations(emotion, page):
         'general': []
     }
     
-    # Map NRClex emotions to our system
+    # Map DeepFace emotions to our system
     emotion_mapping = {
-        'joy': 'happy',
-        'sadness': 'sad', 
-        'anger': 'angry',
+        'happy': 'happy',
+        'sad': 'sad', 
+        'angry': 'angry',
         'fear': 'fear',
         'disgust': 'disgust',
-        'surprise': 'surprise'
+        'surprise': 'surprise',
+        'neutral': 'neutral'
     }
     
     mapped_emotion = emotion_mapping.get(emotion, emotion)

@@ -29,12 +29,11 @@ function App() {
             element={userProfile ? <Navigate to="/assessment" replace /> : <Onboarding />} 
           />
           
-          {/* Assessment - only if no assessment result */}
+          {/* Assessment - allow retaking if coming from results */}
           <Route 
             path="/assessment" 
             element={
               !userProfile ? <Navigate to="/onboarding" replace /> :
-              assessmentResult ? <Navigate to="/dashboard" replace /> :
               <Assessment />
             } 
           />

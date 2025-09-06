@@ -7,12 +7,15 @@ import {
   RotateCcw,
   Target,
   Brain,
-  Camera
+  Camera,
+  Music,
+  MessageCircle
 } from 'lucide-react';
-import { getAssessmentResult } from '../utils/storage';
-import { getExerciseForDomain, getRandomExercise } from '../data/exercises';
+import { getAssessmentResult, getChatHistory } from '../utils/storage';
+import { getExerciseForDomain, getRandomExercise, getExerciseRecommendations } from '../data/exercises';
 import { updateExerciseStreak } from '../utils/storage';
 import EmotionDetector from './EmotionDetector';
+import MusicPlayer from './MusicPlayer';
 
 const Exercise = () => {
   const navigate = useNavigate();
@@ -22,14 +25,28 @@ const Exercise = () => {
   const [timeRemaining, setTimeRemaining] = useState(0);
   const [isActive, setIsActive] = useState(false);
   const [showEmotionDetector, setShowEmotionDetector] = useState(false);
+  const [showMusicPlayer, setShowMusicPlayer] = useState(false);
   const [currentEmotion, setCurrentEmotion] = useState(null);
+  const [exerciseRecommendations, setExerciseRecommendations] = useState([]);
+  const [showRecommendations, setShowRecommendations] = useState(false);
 
   useEffect(() => {
     const assessmentResult = getAssessmentResult();
+    const chatHistory = getChatHistory();
+    
     if (assessmentResult) {
-      // Get exercise for weakest domain
-      const exercise = getExerciseForDomain(assessmentResult.weakestDomain);
-      setCurrentExercise(exercise);
+      // Get exercise recommendations based on EQ results and chat context
+      const recommendations = getExerciseRecommendations(assessmentResult, chatHistory);
+      setExerciseRecommendations(recommendations);
+      
+      // Set the first recommended exercise as current
+      if (recommendations.length > 0) {
+        setCurrentExercise(recommendations[0]);
+      } else {
+        // Fallback to weakest domain exercise
+        const exercise = getExerciseForDomain(assessmentResult.weakestDomain);
+        setCurrentExercise(exercise);
+      }
     } else {
       // Fallback to random exercise
       setCurrentExercise(getRandomExercise());
@@ -119,17 +136,45 @@ const Exercise = () => {
             Practice your emotional intelligence skills
           </p>
           
-          <button
-            onClick={() => setShowEmotionDetector(!showEmotionDetector)}
-            className={`mt-4 flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors mx-auto ${
-              showEmotionDetector 
-                ? 'bg-primary-600 text-white' 
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            <Camera className="w-4 h-4" />
-            <span>{showEmotionDetector ? 'Hide' : 'Show'} Emotion Detection</span>
-          </button>
+          <div className="flex flex-wrap gap-2 justify-center mt-4">
+            <button
+              onClick={() => setShowEmotionDetector(!showEmotionDetector)}
+              className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
+                showEmotionDetector 
+                  ? 'bg-primary-600 text-white' 
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              <Camera className="w-4 h-4" />
+              <span>{showEmotionDetector ? 'Hide' : 'Show'} Emotion Detection</span>
+            </button>
+            
+            <button
+              onClick={() => setShowMusicPlayer(!showMusicPlayer)}
+              className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
+                showMusicPlayer 
+                  ? 'bg-purple-600 text-white' 
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              <Music className="w-4 h-4" />
+              <span>{showMusicPlayer ? 'Hide' : 'Show'} Music</span>
+            </button>
+            
+            {exerciseRecommendations.length > 1 && (
+              <button
+                onClick={() => setShowRecommendations(!showRecommendations)}
+                className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
+                  showRecommendations 
+                    ? 'bg-green-600 text-white' 
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                <MessageCircle className="w-4 h-4" />
+                <span>{showRecommendations ? 'Hide' : 'Show'} Recommendations</span>
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Emotion Detector */}
@@ -140,6 +185,57 @@ const Exercise = () => {
               isActive={showEmotionDetector}
               currentPage="exercise"
             />
+          </div>
+        )}
+
+        {/* Music Player */}
+        {showMusicPlayer && (
+          <div className="mb-8">
+            <MusicPlayer isActive={showMusicPlayer} />
+          </div>
+        )}
+
+        {/* Exercise Recommendations */}
+        {showRecommendations && exerciseRecommendations.length > 1 && (
+          <div className="mb-8">
+            <div className="bg-white rounded-lg border border-gray-200 p-4">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center space-x-2">
+                <MessageCircle className="w-5 h-5 text-green-600" />
+                <span>Personalized Exercise Recommendations</span>
+              </h3>
+              <p className="text-sm text-gray-600 mb-4">
+                Based on your EQ assessment and chat history, here are exercises tailored for you:
+              </p>
+              <div className="space-y-3">
+                {exerciseRecommendations.map((exercise, index) => (
+                  <div 
+                    key={exercise.id}
+                    className={`p-3 rounded-lg border cursor-pointer transition-colors ${
+                      currentExercise?.id === exercise.id 
+                        ? 'bg-primary-50 border-primary-200' 
+                        : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
+                    }`}
+                    onClick={() => setCurrentExercise(exercise)}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="font-medium text-gray-900">{exercise.title}</h4>
+                        <p className="text-sm text-gray-600">{exercise.description}</p>
+                        <div className="flex items-center space-x-2 mt-1">
+                          <Clock className="w-3 h-3 text-gray-400" />
+                          <span className="text-xs text-gray-500">{exercise.duration}</span>
+                          <span className="text-xs text-gray-500">•</span>
+                          <span className="text-xs text-gray-500">{exercise.reason || 'Recommended for you'}</span>
+                        </div>
+                      </div>
+                      {currentExercise?.id === exercise.id && (
+                        <CheckCircle className="w-5 h-5 text-primary-600" />
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         )}
 

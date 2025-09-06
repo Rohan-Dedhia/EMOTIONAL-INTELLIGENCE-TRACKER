@@ -9,7 +9,7 @@ import {
   Camera
 } from 'lucide-react';
 import { generateChatResponse } from '../utils/gemini';
-import { getAssessmentResult, getUserProfile } from '../utils/storage';
+import { getAssessmentResult, getUserProfile, saveChatMessage } from '../utils/storage';
 import EmotionDetector from './EmotionDetector';
 
 const Chat = () => {
@@ -77,10 +77,11 @@ const Chat = () => {
       timestamp: new Date()
     };
 
-    setMessages(prev => [...prev, userMessage]);
-    const currentMessage = inputMessage.trim();
-    setInputMessage('');
-    setIsLoading(true);
+      setMessages(prev => [...prev, userMessage]);
+      saveChatMessage(userMessage); // Save user message to storage
+      const currentMessage = inputMessage.trim();
+      setInputMessage('');
+      setIsLoading(true);
 
     try {
       // Create context from assessment results and current emotion
@@ -103,6 +104,7 @@ const Chat = () => {
       };
 
       setMessages(prev => [...prev, botMessage]);
+      saveChatMessage(botMessage); // Save bot message to storage
     } catch (error) {
       console.error('Error getting chat response:', error);
       const errorMessage = {
@@ -112,6 +114,7 @@ const Chat = () => {
         timestamp: new Date()
       };
       setMessages(prev => [...prev, errorMessage]);
+      saveChatMessage(errorMessage); // Save error message to storage
     } finally {
       setIsLoading(false);
     }

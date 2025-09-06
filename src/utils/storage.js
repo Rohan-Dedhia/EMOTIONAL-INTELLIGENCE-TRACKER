@@ -5,7 +5,8 @@ export const STORAGE_KEYS = {
   ASSESSMENT_RESULT: 'eq_assessment_result',
   CHECK_INS: 'eq_check_ins',
   EXERCISE_STREAK: 'eq_exercise_streak',
-  LAST_AI_TIP: 'eq_last_ai_tip'
+  LAST_AI_TIP: 'eq_last_ai_tip',
+  CHAT_HISTORY: 'eq_chat_history'
 };
 
 // User Profile
@@ -26,6 +27,10 @@ export const saveAssessmentResult = (result) => {
 export const getAssessmentResult = () => {
   const result = localStorage.getItem(STORAGE_KEYS.ASSESSMENT_RESULT);
   return result ? JSON.parse(result) : null;
+};
+
+export const clearAssessmentResult = () => {
+  localStorage.removeItem(STORAGE_KEYS.ASSESSMENT_RESULT);
 };
 
 // Check-ins
@@ -81,6 +86,24 @@ export const saveLastAITip = (tip) => {
 
 export const getLastAITip = () => {
   return localStorage.getItem(STORAGE_KEYS.LAST_AI_TIP) || '';
+};
+
+// Chat History
+export const saveChatMessage = (message) => {
+  const existingHistory = getChatHistory();
+  const updatedHistory = [...existingHistory, message];
+  // Keep only last 50 messages to prevent storage bloat
+  const trimmedHistory = updatedHistory.slice(-50);
+  localStorage.setItem(STORAGE_KEYS.CHAT_HISTORY, JSON.stringify(trimmedHistory));
+};
+
+export const getChatHistory = () => {
+  const history = localStorage.getItem(STORAGE_KEYS.CHAT_HISTORY);
+  return history ? JSON.parse(history) : [];
+};
+
+export const clearChatHistory = () => {
+  localStorage.removeItem(STORAGE_KEYS.CHAT_HISTORY);
 };
 
 // Clear all data (for testing/reset)

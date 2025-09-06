@@ -158,3 +158,96 @@ export const getRandomExercise = () => {
   return allExercises[Math.floor(Math.random() * allExercises.length)];
 };
 
+export const getExerciseRecommendations = (assessmentResult, chatHistory = []) => {
+  const recommendations = [];
+  const allExercises = Object.values(EXERCISES).flat();
+  
+  // Get exercises for weakest domain
+  const weakestDomainExercises = EXERCISES[assessmentResult.weakestDomain] || [];
+  weakestDomainExercises.forEach(exercise => {
+    recommendations.push({
+      ...exercise,
+      reason: `Recommended for your weakest area: ${assessmentResult.weakestDomain.replace('_', ' ')}`,
+      priority: 'high'
+    });
+  });
+  
+  // Analyze chat history for context
+  const chatText = chatHistory.map(msg => msg.content).join(' ').toLowerCase();
+  
+  // Add exercises based on chat context
+  if (chatText.includes('stress') || chatText.includes('anxiety')) {
+    const stressExercises = allExercises.filter(ex => 
+      ex.title.toLowerCase().includes('breathing') || 
+      ex.title.toLowerCase().includes('relaxation') ||
+      ex.title.toLowerCase().includes('meditation')
+    );
+    stressExercises.forEach(exercise => {
+      if (!recommendations.find(rec => rec.id === exercise.id)) {
+        recommendations.push({
+          ...exercise,
+          reason: 'Based on your stress management needs',
+          priority: 'medium'
+        });
+      }
+    });
+  }
+  
+  if (chatText.includes('relationship') || chatText.includes('communication')) {
+    const socialExercises = allExercises.filter(ex => 
+      ex.title.toLowerCase().includes('listening') || 
+      ex.title.toLowerCase().includes('communication') ||
+      ex.title.toLowerCase().includes('empathy')
+    );
+    socialExercises.forEach(exercise => {
+      if (!recommendations.find(rec => rec.id === exercise.id)) {
+        recommendations.push({
+          ...exercise,
+          reason: 'Based on your relationship improvement goals',
+          priority: 'medium'
+        });
+      }
+    });
+  }
+  
+  if (chatText.includes('motivation') || chatText.includes('goal')) {
+    const motivationExercises = allExercises.filter(ex => 
+      ex.title.toLowerCase().includes('gratitude') || 
+      ex.title.toLowerCase().includes('visualization') ||
+      ex.title.toLowerCase().includes('goal')
+    );
+    motivationExercises.forEach(exercise => {
+      if (!recommendations.find(rec => rec.id === exercise.id)) {
+        recommendations.push({
+          ...exercise,
+          reason: 'Based on your motivation and goal-setting needs',
+          priority: 'medium'
+        });
+      }
+    });
+  }
+  
+  // Add some general exercises if we don't have enough recommendations
+  if (recommendations.length < 3) {
+    const generalExercises = allExercises.filter(ex => 
+      !recommendations.find(rec => rec.id === ex.id)
+    );
+    const randomGeneral = generalExercises.slice(0, 3 - recommendations.length);
+    randomGeneral.forEach(exercise => {
+      recommendations.push({
+        ...exercise,
+        reason: 'General emotional intelligence practice',
+        priority: 'low'
+      });
+    });
+  }
+  
+  // Sort by priority and return top 5
+  return recommendations
+    .sort((a, b) => {
+      const priorityOrder = { high: 3, medium: 2, low: 1 };
+      return priorityOrder[b.priority] - priorityOrder[a.priority];
+    })
+    .slice(0, 5);
+};
+
