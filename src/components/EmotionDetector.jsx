@@ -46,6 +46,7 @@ const EmotionDetector = ({ onEmotionDetected, isActive = false, currentPage = 'c
     setRecommendations(null);
   }, []);
 
+
   // Capture image and send to backend
   const captureAndDetect = useCallback(async () => {
     if (!videoRef.current || isProcessing) return;
@@ -169,7 +170,7 @@ const EmotionDetector = ({ onEmotionDetected, isActive = false, currentPage = 'c
   return (
     <div className="bg-white rounded-lg border border-gray-200 p-4 mb-4">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-gray-900">Emotion Detection</h3>
+        <h3 className="text-lg font-semibold text-gray-900">Camera Emotion Detection</h3>
         <button
           onClick={isDetecting ? stopCamera : startCamera}
           className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
@@ -247,7 +248,7 @@ const EmotionDetector = ({ onEmotionDetected, isActive = false, currentPage = 'c
         <p className="text-sm text-gray-600">
           {isDetecting 
             ? 'Detecting emotions every 3 seconds...' 
-            : 'Click "Start" to begin emotion detection'
+            : 'Click "Start" to begin camera detection'
           }
         </p>
         <p className="text-xs text-gray-500 mt-1">

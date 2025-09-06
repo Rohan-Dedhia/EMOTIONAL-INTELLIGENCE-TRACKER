@@ -176,3 +176,4 @@ Modify the interval in `EmotionDetector.jsx` (currently set to 3000ms) to change
 - **Voice emotion detection**
 - **Emotion-based exercise scheduling**
 - **Personalized emotion coaching**
+

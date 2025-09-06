@@ -1,9 +1,8 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Heart, Smile, Frown, Meh, ArrowRight, ArrowLeft, Camera } from 'lucide-react';
+import { Heart, Smile, Frown, Meh, ArrowRight, ArrowLeft } from 'lucide-react';
 import { saveCheckIn } from '../utils/storage';
 import { generateJournalFeedback } from '../utils/gemini';
-import EmotionDetector from './EmotionDetector';
 
 const CheckIn = () => {
   const navigate = useNavigate();
@@ -12,8 +11,6 @@ const CheckIn = () => {
   const [journalEntry, setJournalEntry] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [aiFeedback, setAiFeedback] = useState('');
-  const [showEmotionDetector, setShowEmotionDetector] = useState(false);
-  const [currentEmotion, setCurrentEmotion] = useState(null);
 
   const emotionTags = useMemo(() => [
     'Happy', 'Calm', 'Excited', 'Grateful', 'Confident',
@@ -33,40 +30,6 @@ const CheckIn = () => {
     9: { emoji: '🥳', label: 'Amazing', color: 'text-purple-500' },
     10: { emoji: '🎉', label: 'Perfect', color: 'text-pink-500' }
   }), []);
-
-  const handleEmotionDetected = useCallback((emotionData) => {
-    setCurrentEmotion(emotionData);
-    
-    // Auto-adjust mood based on detected emotion
-    const emotionToMood = {
-      'happy': 8,
-      'sad': 3,
-      'angry': 2,
-      'fear': 4,
-      'disgust': 3,
-      'surprise': 6,
-      'neutral': 5
-    };
-    
-    if (emotionToMood[emotionData.emotion]) {
-      setMood(emotionToMood[emotionData.emotion]);
-    }
-    
-    // Auto-suggest relevant emotion tags
-    const emotionToTags = {
-      'happy': ['Happy', 'Excited'],
-      'sad': ['Sad', 'Tired'],
-      'angry': ['Angry', 'Frustrated'],
-      'fear': ['Anxious', 'Stressed'],
-      'disgust': ['Overwhelmed'],
-      'surprise': ['Excited'],
-      'neutral': ['Neutral', 'Calm']
-    };
-    
-    if (emotionToTags[emotionData.emotion]) {
-      setSelectedTags(prev => [...new Set([...prev, ...emotionToTags[emotionData.emotion]])]);
-    }
-  }, []);
 
   const toggleTag = useCallback((tag) => {
     setSelectedTags(prev => 
@@ -132,30 +95,7 @@ const CheckIn = () => {
           <p className="text-gray-600">
             How are you feeling today?
           </p>
-          
-          <button
-            onClick={() => setShowEmotionDetector(!showEmotionDetector)}
-            className={`mt-4 flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors mx-auto ${
-              showEmotionDetector 
-                ? 'bg-primary-600 text-white' 
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            <Camera className="w-4 h-4" />
-            <span>{showEmotionDetector ? 'Hide' : 'Show'} Emotion Detection</span>
-          </button>
         </div>
-
-        {/* Emotion Detector */}
-        {showEmotionDetector && (
-          <div className="mb-8">
-            <EmotionDetector 
-              onEmotionDetected={handleEmotionDetected}
-              isActive={showEmotionDetector}
-              currentPage="checkin"
-            />
-          </div>
-        )}
 
         <form onSubmit={handleSubmit} className="space-y-8">
           {/* Mood Slider */}
